@@ -4,6 +4,7 @@ namespace Alura\Leilao\Dao;
 
 use Alura\Leilao\Infra\ConnectionCreator;
 use Alura\Leilao\Model\Leilao as ModelLeilao;
+use PDO;
 
 class Leilao
 {
@@ -18,8 +19,8 @@ class Leilao
     {
         $sql = 'INSERT INTO leiloes (descricao, finalizado, dataInicio) VALUES (?, ?, ?)';
         $stm = $this->con->prepare($sql);
-        $stm->bindValue(1, $leilao->recuperarDescricao(), \PDO::PARAM_STR);
-        $stm->bindValue(2, $leilao->estaFinalizado(), \PDO::PARAM_BOOL);
+        $stm->bindValue(1, $leilao->recuperarDescricao(), PDO::PARAM_STR);
+        $stm->bindValue(2, $leilao->estaFinalizado(), PDO::PARAM_BOOL);
         $stm->bindValue(3, $leilao->recuperarDataInicio()->format('Y-m-d'));
         $stm->execute();
     }
@@ -46,7 +47,7 @@ class Leilao
     private function recuperarLeiloesSeFinalizado(bool $finalizado): array
     {
         $sql = 'SELECT * FROM leiloes WHERE finalizado = ' . ($finalizado ? 1 : 0);
-        $stm = $this->con->query($sql, \PDO::FETCH_ASSOC);
+        $stm = $this->con->query($sql, PDO::FETCH_ASSOC);
 
         $dados = $stm->fetchAll();
         $leiloes = [];
@@ -67,8 +68,8 @@ class Leilao
         $stm = $this->con->prepare($sql);
         $stm->bindValue(':descricao', $leilao->recuperarDescricao());
         $stm->bindValue(':dataInicio', $leilao->recuperarDataInicio()->format('Y-m-d'));
-        $stm->bindValue(':finalizado', $leilao->estaFinalizado(), \PDO::PARAM_BOOL);
-        $stm->bindValue(':id', $leilao->recuperarId(), \PDO::PARAM_INT);
+        $stm->bindValue(':finalizado', $leilao->estaFinalizado(), PDO::PARAM_BOOL);
+        $stm->bindValue(':id', $leilao->recuperarId(), PDO::PARAM_INT);
         $stm->execute();
     }
 }
