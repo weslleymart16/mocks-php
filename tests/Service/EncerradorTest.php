@@ -5,6 +5,8 @@ namespace Alura\Leilao\Tests\Service;
 use Alura\Leilao\Dao\Leilao as LeilaoDao;
 use Alura\Leilao\Model\Leilao;
 use Alura\Leilao\Service\Encerrador;
+use Alura\Leilao\Service\EnviadorEmail;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 // class para duble de teste manualmente criado.
@@ -41,21 +43,29 @@ use PHPUnit\Framework\TestCase;
 
 class EncerradorTest extends TestCase
 {
-    public function testLeiloesComMaisDeUmaSemanaDevemSerEncerrados ()
+    private $encerrador;
+    private $enviadorEmail;
+    private $leilaoCruze2023;
+    private $leilaoHb20;
+
+    public function setUp():void
     {
 
-        $cruze2023 = new Leilao(
+        $this->leilaoCruze2023 = new Leilao(
             'Cruze 2023',
             new \DateTimeImmutable('8 days ago')
         );
 
-        $hb20 = new Leilao(
+        $this->leilaoHb20 = new Leilao(
             'HB20 2023',
             new \DateTimeImmutable('10 days ago')
         );
 
         // $leilaoDao = new LeilaoDaoMocks(); // class criada manualmente em cima da class EncerradorTest.
 
+        /**
+         * @var LeilaoDao|MockObject $leilaoDao
+         */
         $leilaoDao = $this->createMock(LeilaoDao::class); // class criada pelo PHPUnit Automatizado.
 
         // personalizar o mock
@@ -63,18 +73,28 @@ class EncerradorTest extends TestCase
         //     ->setConstructorArgs([new \PDO('sqlite::memory:')]) // passando o construtor da class LeilaoDao
         //     ->getMock();
 
-        $leilaoDao->method('recuperarNaoFinalizados')->willReturn([$cruze2023, $hb20]);
-        $leilaoDao->method('recuperarFinalizados')->willReturn([$cruze2023, $hb20]);
-        $leilaoDao->expects($this->exactly(2))->method('atualiza')->withConsecutive([$cruze2023], [$hb20]);
+        $leilaoDao->method('recuperarNaoFinalizados')->willReturn([$this->leilaoCruze2023, $this->leilaoHb20]);
+        $leilaoDao->method('recuperarFinalizados')->willReturn([$this->leilaoCruze2023, $this->leilaoHb20]);
+        $leilaoDao->expects($this->exactly(2))->method('atualiza')->withConsecutive([$this->leilaoCruze2023], [$this->leilaoHb20]);
 
         // $leilaoDao->salva($cruze2023);
         // $leilaoDao->salva($hb20);
 
-        $encerrador = new Encerrador($leilaoDao);
-        $encerrador->encerra();
+        $this->enviadorEmail = $this->createMock(EnviadorEmail::class);
+        /**
+         * @var EnviadorEmail|MockObject $enviadorEmail
+         */
+        $enviadorEmail = $this->enviadorEmail;
 
-        $leiloes = $leilaoDao->recuperarFinalizados();
+        $this->encerrador = new Encerrador($leilaoDao, $enviadorEmail);
+        
+    }
 
+    public function testLeiloesComMaisDeUmaSemanaDevemSerEncerrados ()
+    {
+        $this->encerrador->encerra();
+
+        $leiloes = [$this->leilaoCruze2023, $this->leilaoHb20];
         self::assertCount(2, $leiloes);
         self::assertTrue($leiloes[0]->estaFinalizado());
         self::assertTrue($leiloes[1]->estaFinalizado());
@@ -82,5 +102,23 @@ class EncerradorTest extends TestCase
         // self::assertEquals('HB20 2023', $leiloes[1]->recuperarDescricao());
 
 
+    }
+
+    public function testeDeveContinuarOProcessamentoAoEncontrarErroAoEnviarEmail()
+    {
+        $e = new \DomainException('Erro ao enviar e-mail');
+        $this->enviadorEmail->expects($this->exactly(2))->method('notificarTerminoLeilao')->willThrowException($e);
+
+        $this->encerrador->encerra();
+
+    }
+
+    public function testSoDeveEnviarLeilaoPorEmailAposFinalizado()
+    {
+        $this->enviadorEmail->expects($this->exactly(2))->method('notificarTerminoLeilao')->willReturnCallback(function (Leilao $leilao) {
+            static::assertTrue($leilao->estaFinalizado());
+        });
+
+        $this->encerrador->encerra();
     }
 }
