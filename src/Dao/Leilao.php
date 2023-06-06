@@ -28,7 +28,7 @@ class Leilao
         return new ModelLeilao(
             $leilao->recuperarDescricao(),
             $leilao->recuperarDataInicio(),
-            $this->con->lastInsertId()
+            (int) $this->con->lastInsertId()
         );
     }
 
